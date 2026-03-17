@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Rights Clearance Checker — Definitely-Not-Evil-Corp Inc.</title>
+  <style>
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface2: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --primary-light: #dbeafe;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04);
+      --shadow-lg: 0 4px 6px rgba(0,0,0,0.06), 0 12px 28px rgba(0,0,0,0.08);
+      --transition: 0.18s ease;
+
+      /* Result states */
+      --authorized-bg: #f0fdf4;       --authorized-border: #bbf7d0;      --authorized-text: #166534;
+      --likely-bg: #eff6ff;           --likely-border: #bfdbfe;          --likely-text: #1e40af;
+      --insufficient-bg: #fffbeb;     --insufficient-border: #fde68a;    --insufficient-text: #92400e;
+      --highrisk-bg: #fef2f2;         --highrisk-border: #fecaca;        --highrisk-text: #991b1b;
+      --escalate-bg: #faf5ff;         --escalate-border: #e9d5ff;        --escalate-text: #6b21a8;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1c2128;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --text-light: #6e7681;
+      --primary: #4d9de0;
+      --primary-hover: #6eb0ef;
+      --primary-light: #1a2d4a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.25);
+      --shadow-lg: 0 4px 6px rgba(0,0,0,0.3), 0 12px 28px rgba(0,0,0,0.35);
+
+      --authorized-bg: #052e16;       --authorized-border: #166534;      --authorized-text: #4ade80;
+      --likely-bg: #1e1a3a;           --likely-border: #3b4fd8;          --likely-text: #93c5fd;
+      --insufficient-bg: #2d1f00;     --insufficient-border: #92400e;    --insufficient-text: #fbbf24;
+      --highrisk-bg: #2d0d0d;         --highrisk-border: #991b1b;        --highrisk-text: #f87171;
+      --escalate-bg: #1e0d36;         --escalate-border: #6b21a8;        --escalate-text: #c084fc;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 72px;
+      transition: background var(--transition), color var(--transition);
+      line-height: 1.6;
+    }
+
+    /* =========================================================
+       LAYOUT
+    ========================================================= */
+    .container { max-width: 840px; margin: 0 auto; }
+
+    /* =========================================================
+       HEADER
+    ========================================================= */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      width: 44px; height: 44px;
+      background: var(--primary);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .brand-text {}
+    .brand-name {
+      font-size: clamp(1.1rem, 3vw, 1.45rem);
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .brand-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .brand-org {
+      font-size: 0.72rem;
+      color: var(--text-light);
+      margin-top: 1px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .header-actions { display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0; margin-top: 4px; }
+    .dark-toggle {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all var(--transition);
+    }
+    .dark-toggle:hover { background: var(--surface2); }
+
+    /* =========================================================
+       DISCLAIMER BANNER
+    ========================================================= */
+    .disclaimer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.55;
+    }
+    .disclaimer strong { color: var(--text); font-weight: 600; }
+
+    /* =========================================================
+       STEP INDICATOR
+    ========================================================= */
+    .steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .step-num {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+    .step-label {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+      transition: color var(--transition);
+    }
+    .step-divider {
+      height: 1px;
+      width: 32px;
+      background: var(--border);
+      margin: 0 8px;
+      flex-shrink: 0;
+    }
+    .step.active .step-num { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .step.active .step-label { color: var(--primary); font-weight: 600; }
+    .step.done .step-num { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .step.done .step-label { color: #16a34a; }
+
+    /* =========================================================
+       CARDS
+    ========================================================= */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .card-title-group {}
+    .step-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      margin-bottom: 2px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* =========================================================
+       BUTTONS
+    ========================================================= */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+      white-space: nowrap;
+      line-height: 1;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30,64,175,0.3); }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface2); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-lg { padding: 12px 28px; font-size: 1rem; border-radius: var(--radius-sm); }
+    .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
+    /* =========================================================
+       UPLOAD ZONE
+    ========================================================= */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 44px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--surface2);
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .drop-zone.dragover { box-shadow: 0 0 0 3px rgba(30,64,175,0.12); }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-icon { font-size: 2.2rem; margin-bottom: 10px; display: block; }
+    .drop-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .drop-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; }
+    .drop-formats { font-size: 0.72rem; color: var(--text-light); margin-top: 10px; }
+
+    /* Preview */
+    .preview-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-top: 14px;
+    }
+    .preview-thumb {
+      width: 80px; height: 60px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .preview-thumb img { width: 100%; height: 100%; object-fit: contain; }
+    .preview-meta { flex: 1; min-width: 0; }
+    .preview-filename { font-size: 0.875rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .preview-details { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+    .preview-change { margin-top: 6px; }
+
+    /* =========================================================
+       SOURCE SELECTION
+    ========================================================= */
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .source-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--surface2);
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+    }
+    .source-card:hover { border-color: var(--primary); background: var(--primary-light); }
+    .source-card.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      box-shadow: 0 0 0 3px rgba(30,64,175,0.1);
+    }
+    .source-card.selected .source-card-title { color: var(--primary); }
+    .source-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .source-card-text {}
+    .source-card-title { font-size: 0.84rem; font-weight: 600; color: var(--text); line-height: 1.35; }
+    .source-card-sub  { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+    .source-card.high-risk-source .source-card-title { color: #b91c1c; }
+    .source-card.high-risk-source { border-color: #fca5a5; }
+    .source-card.high-risk-source.selected { background: #fef2f2; box-shadow: 0 0 0 3px rgba(185,28,28,0.1); }
+
+    /* =========================================================
+       EVIDENCE QUESTIONS
+    ========================================================= */
+    .evidence-intro {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 12px 14px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.55;
+    }
+    .evidence-intro.warning {
+      border-left-color: #dc2626;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+    .q-block {
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .q-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .q-label {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+      display: block;
+    }
+    .q-hint {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+    }
+    .q-hint::before { content: '💡'; font-size: 0.7rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* Yes/No toggles */
+    .yesno-group { display: flex; gap: 8px; }
+    .yesno-btn {
+      padding: 7px 20px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .yesno-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .yesno-btn.selected-yes { background: #f0fdf4; border-color: #16a34a; color: #166534; font-weight: 600; }
+    .yesno-btn.selected-no  { background: #fef2f2; border-color: #dc2626; color: #991b1b; font-weight: 600; }
+
+    /* Text inputs */
+    .q-input, .q-select {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.85rem;
+      font-family: inherit;
+      transition: border-color var(--transition);
+      outline: none;
+    }
+    .q-input:focus, .q-select:focus { border-color: var(--primary); }
+    .q-input::placeholder { color: var(--text-light); }
+
+    /* =========================================================
+       REVIEWER SECTION
+    ========================================================= */
+    .reviewer-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 560px) { .reviewer-row { grid-template-columns: 1fr; } }
+    .field-group {}
+    .field-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* =========================================================
+       LOADING
+    ========================================================= */
+    .loading-wrap {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 24px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+    }
+    .loading-wrap.show { display: flex; }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* =========================================================
+       RESULT CARD
+    ========================================================= */
+    .result-status-bar {
+      border-radius: var(--radius-sm);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .result-icon { font-size: 2rem; flex-shrink: 0; }
+    .result-status-text {}
+    .result-status-label {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+    .result-status-sub { font-size: 0.8rem; margin-top: 2px; opacity: 0.8; }
+
+    /* Color classes per state */
+    .status-authorized    { background: var(--authorized-bg); border: 1.5px solid var(--authorized-border); }
+    .status-authorized    .result-status-label, .status-authorized .result-status-sub { color: var(--authorized-text); }
+    .status-likely        { background: var(--likely-bg); border: 1.5px solid var(--likely-border); }
+    .status-likely        .result-status-label, .status-likely .result-status-sub { color: var(--likely-text); }
+    .status-insufficient  { background: var(--insufficient-bg); border: 1.5px solid var(--insufficient-border); }
+    .status-insufficient  .result-status-label, .status-insufficient .result-status-sub { color: var(--insufficient-text); }
+    .status-highrisk      { background: var(--highrisk-bg); border: 1.5px solid var(--highrisk-border); }
+    .status-highrisk      .result-status-label, .status-highrisk .result-status-sub { color: var(--highrisk-text); }
+    .status-escalate      { background: var(--escalate-bg); border: 1.5px solid var(--escalate-border); }
+    .status-escalate      .result-status-label, .status-escalate .result-status-sub { color: var(--escalate-text); }
+
+    /* Score bar */
+    .score-row { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+    .score-bar-wrap { flex: 1; min-width: 200px; }
+    .score-bar-label { display: flex; justify-content: space-between; font-size: 0.77rem; color: var(--text-muted); margin-bottom: 5px; }
+    .score-bar { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 99px; transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
+    .fill-authorized   { background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .fill-likely       { background: linear-gradient(90deg, #2563eb, #60a5fa); }
+    .fill-insufficient { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .fill-highrisk     { background: linear-gradient(90deg, #dc2626, #f87171); }
+    .fill-escalate     { background: linear-gradient(90deg, #7c3aed, #c084fc); }
+    .score-number { font-size: 1.5rem; font-weight: 800; color: var(--text); flex-shrink: 0; }
+
+    /* Explanation */
+    .result-summary {
+      font-size: 0.875rem;
+      color: var(--text);
+      line-height: 1.7;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    /* Next Action */
+    .next-action {
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 18px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.55;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .next-action-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .next-action-text strong { display: block; font-weight: 700; margin-bottom: 3px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .na-authorized   { background: var(--authorized-bg);   border: 1px solid var(--authorized-border);   color: var(--authorized-text); }
+    .na-likely       { background: var(--likely-bg);       border: 1px solid var(--likely-border);       color: var(--likely-text); }
+    .na-insufficient { background: var(--insufficient-bg); border: 1px solid var(--insufficient-border); color: var(--insufficient-text); }
+    .na-highrisk     { background: var(--highrisk-bg);     border: 1px solid var(--highrisk-border);     color: var(--highrisk-text); }
+    .na-escalate     { background: var(--escalate-bg);     border: 1px solid var(--escalate-border);     color: var(--escalate-text); }
+
+    /* =========================================================
+       SIGNALS SECTION
+    ========================================================= */
+    .signals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+    @media (max-width: 580px) { .signals-grid { grid-template-columns: 1fr; } }
+
+    .signals-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+    .signals-box-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 10px;
+    }
+    .signal-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 0.8rem;
+      padding: 4px 0;
+      color: var(--text);
+      line-height: 1.4;
+      border-bottom: 1px solid var(--border);
+    }
+    .signal-item:last-child { border-bottom: none; }
+    .sig-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .sig-red    { background: #dc2626; }
+    .sig-green  { background: #16a34a; }
+    .sig-amber  { background: #d97706; }
+    .sig-empty  { font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
+
+    /* =========================================================
+       TECHNICAL SIGNALS (secondary, collapsible)
+    ========================================================= */
+    .tech-section { margin-top: 18px; }
+    .tech-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      width: 100%;
+      text-align: left;
+    }
+    .tech-toggle:hover { color: var(--text); }
+    .tech-toggle .arrow { transition: transform 0.2s; }
+    .tech-toggle.open .arrow { transform: rotate(90deg); }
+    .tech-body {
+      display: none;
+      margin-top: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+    .tech-body.show { display: block; }
+    .tech-intro {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-style: italic;
+      line-height: 1.5;
+    }
+    .tech-signal {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 0.79rem;
+      padding: 5px 0;
+      color: var(--text);
+      line-height: 1.4;
+      border-bottom: 1px solid var(--border);
+    }
+    .tech-signal:last-child { border-bottom: none; }
+
+    /* Perceptual hash display */
+    .hash-display {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.74rem;
+      color: var(--primary);
+      word-break: break-all;
+      letter-spacing: 0.05em;
+      line-height: 1.9;
+      padding: 10px 12px;
+      background: var(--surface);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      margin-top: 10px;
+    }
+
+    /* =========================================================
+       AUDIT SUMMARY
+    ========================================================= */
+    .audit-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-top: 18px;
+    }
+    .audit-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .audit-row {
+      display: flex;
+      gap: 10px;
+      font-size: 0.8rem;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .audit-row:last-child { border-bottom: none; }
+    .audit-key { color: var(--text-muted); font-weight: 500; min-width: 160px; flex-shrink: 0; }
+    .audit-val { color: var(--text); word-break: break-word; }
+    .audit-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* =========================================================
+       ERROR / TOAST
+    ========================================================= */
+    .error-msg {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.83rem;
+      margin-top: 12px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+    .toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--text);
+      color: var(--surface);
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.25s ease;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* =========================================================
+       UTILITIES
+    ========================================================= */
+    .hidden { display: none !important; }
+    .divider { height: 1px; background: var(--border); margin: 18px 0; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 99px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .tag-amber { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .tag-red   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .text-sm   { font-size: 0.8rem; }
+    .text-muted { color: var(--text-muted); }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-top: 32px;
+    }
+    #processingCanvas { display: none; }
+  </style>
+</head>
+<body>
+<canvas id="processingCanvas"></canvas>
+<div id="toast" class="toast"></div>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="brand">
+      <div class="brand-logo">⚖️</div>
+      <div class="brand-text">
+        <div class="brand-name">Image Rights Clearance Checker</div>
+        <div class="brand-sub">Screen image source, licence, and authorization before publication</div>
+        <div class="brand-org">Definitely-Not-Evil-Corp Inc. · Internal Compliance Tool</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="dark-toggle" id="darkToggle" title="Toggle dark mode">🌙</button>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    <strong>Compliance Screener — Not Legal Advice.</strong>
+    This tool is a preliminary compliance screening aid. It does not provide legal advice and does not conclusively determine copyright ownership.
+    Under the <em>Copyright Act</em> (Canada) and the Berne Convention (150+ countries), copyright arises <strong>automatically</strong> upon creation of an original work — the absence of a notice does not mean an image is free to use.
+    The real question for this business is whether it has <strong>verified authorization to use the image</strong>. Unclear or high-risk cases must be reviewed by legal counsel or a qualified manager before publication.
+  </div>
+
+  <!-- STEP INDICATOR -->
+  <div class="steps" id="stepIndicator">
+    <div class="step active" id="step1-ind">
+      <div class="step-num">1</div>
+      <div class="step-label">Upload Image</div>
+    </div>
+    <div class="step-divider"></div>
+    <div class="step" id="step2-ind">
+      <div class="step-num">2</div>
+      <div class="step-label">Image Source</div>
+    </div>
+    <div class="step-divider"></div>
+    <div class="step" id="step3-ind">
+      <div class="step-num">3</div>
+      <div class="step-label">Rights Evidence</div>
+    </div>
+    <div class="step-divider"></div>
+    <div class="step" id="step4-ind">
+      <div class="step-num">4</div>
+      <div class="step-label">Clearance Result</div>
+    </div>
+  </div>
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="card" id="uploadCard">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="step-tag">Step 1</div>
+        <div class="card-title">Upload Image for Review</div>
+        <div class="card-sub">Upload the image your team is considering for business use</div>
+      </div>
+      <button class="btn btn-ghost btn-sm hidden" id="resetBtn">↺ Start Over</button>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp" />
+      <span class="drop-icon">📁</span>
+      <div class="drop-title">Drag &amp; drop image here</div>
+      <div class="drop-sub">or click to browse your files</div>
+      <button class="btn btn-secondary btn-sm" style="pointer-events:none;">Choose File</button>
+      <div class="drop-formats">Supports JPG, PNG, WEBP, GIF, BMP · Max 30 MB</div>
+    </div>
+
+    <div id="previewRow" class="hidden">
+      <div class="preview-row">
+        <div class="preview-thumb"><img id="previewImg" src="" alt="Preview" /></div>
+        <div class="preview-meta">
+          <div class="preview-filename" id="previewName"></div>
+          <div class="preview-details" id="previewDetails"></div>
+          <div class="preview-change mt-2">
+            <button class="btn btn-ghost btn-sm" id="changeFileBtn">↺ Change image</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- STEP 2: SOURCE -->
+  <div class="card hidden" id="sourceCard">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="step-tag">Step 2 — Required</div>
+        <div class="card-title">Where did this image come from?</div>
+        <div class="card-sub">Selecting the correct source is the most important factor in determining use authorization risk</div>
+      </div>
+    </div>
+    <div class="source-grid" id="sourceGrid"></div>
+  </div>
+
+  <!-- STEP 3: EVIDENCE -->
+  <div class="card hidden" id="evidenceCard">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="step-tag">Step 3 — Rights Evidence</div>
+        <div class="card-title">Rights Documentation</div>
+        <div class="card-sub">Answer as many questions as possible. Each answer adjusts your clearance risk score</div>
+      </div>
+    </div>
+    <div id="evidenceIntro" class="evidence-intro"></div>
+    <div id="evidenceQuestions"></div>
+  </div>
+
+  <!-- REVIEWER DETAILS -->
+  <div class="card hidden" id="reviewerCard">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="step-tag">Record Details</div>
+        <div class="card-title">Clearance Record Information</div>
+        <div class="card-sub">This information will appear in the downloadable audit record</div>
+      </div>
+    </div>
+    <div class="reviewer-row">
+      <div class="field-group">
+        <label class="field-label">Reviewer / Requestor Name</label>
+        <input class="q-input" type="text" id="reviewerName" placeholder="e.g. Jane Smith" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Department</label>
+        <input class="q-input" type="text" id="reviewerDept" placeholder="e.g. Marketing, Communications" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Intended Use</label>
+        <input class="q-input" type="text" id="intendedUse" placeholder="e.g. Website banner, social media post, print ad" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Internal Asset / Campaign ID (optional)</label>
+        <input class="q-input" type="text" id="assetId" placeholder="e.g. CAMP-2025-004" />
+      </div>
+    </div>
+  </div>
+
+  <!-- RUN CHECK BUTTON -->
+  <div class="hidden" id="runSection" style="text-align:center; margin-bottom:16px;">
+    <button class="btn btn-primary btn-lg" id="runBtn">🔍 Run Rights Clearance Check</button>
+    <div class="text-sm text-muted mt-2">This will analyze source declarations, rights evidence, and image file signals</div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-wrap" id="loadingWrap">
+    <div class="spinner"></div>
+    <span id="loadingText">Running clearance analysis…</span>
+  </div>
+
+  <!-- STEP 4: RESULTS -->
+  <div class="card hidden" id="resultsCard">
+    <div class="card-header">
+      <div class="card-title-group">
+        <div class="step-tag">Step 4 — Clearance Result</div>
+        <div class="card-title">Rights Clearance Assessment</div>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="statusBar" class="result-status-bar"></div>
+
+    <!-- Score -->
+    <div class="score-row">
+      <div class="score-bar-wrap">
+        <div class="score-bar-label">
+          <span>Use Authorization Risk</span>
+          <span id="scoreLabel"></span>
+        </div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+      <div class="score-number" id="scoreNum"></div>
+    </div>
+
+    <!-- Summary -->
+    <div class="result-summary" id="resultSummary"></div>
+
+    <!-- Next Action -->
+    <div id="nextAction" class="next-action"></div>
+
+    <!-- Source + Evidence Signals -->
+    <div class="section-label">Rights Signals — From Source &amp; Documentation</div>
+    <div class="signals-grid">
+      <div class="signals-box">
+        <div class="signals-box-title" style="color:#991b1b;">🔴 Risk Indicators</div>
+        <div id="riskSignals"></div>
+      </div>
+      <div class="signals-box">
+        <div class="signals-box-title" style="color:#166534;">🟢 Clearance Indicators</div>
+        <div id="clearSignals"></div>
+      </div>
+    </div>
+
+    <!-- Technical signals (secondary, collapsible) -->
+    <div class="tech-section">
+      <button class="tech-toggle" id="techToggle">
+        <span class="arrow">▶</span>
+        Supporting Technical File Signals
+        <span class="tag tag-amber" style="margin-left:4px;">Secondary signals only</span>
+      </button>
+      <div class="tech-body" id="techBody">
+        <div class="tech-intro">
+          The following signals were detected from the image file itself. These are <strong>supporting indicators only</strong> — they cannot prove or disprove copyright ownership or licensing. They help flag images that may warrant additional scrutiny, but do not substitute for source verification and rights documentation.
+        </div>
+        <div id="techSignalsList"></div>
+        <div style="margin-top:12px;">
+          <div class="section-label" style="margin-bottom:6px;">Perceptual Fingerprint (for local comparison only)</div>
+          <div class="hash-display" id="hashDisplay"></div>
+          <div class="text-sm text-muted mt-2">This hash does not search any database. It can only be used to compare two images locally on your device.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit Record -->
+    <div class="audit-card">
+      <div class="audit-title">📄 Clearance Decision Record</div>
+      <div id="auditRows"></div>
+      <div class="audit-actions">
+        <button class="btn btn-secondary btn-sm" id="downloadAuditBtn">⬇ Download Record (.txt)</button>
+        <button class="btn btn-ghost btn-sm" id="copyAuditBtn">📋 Copy to Clipboard</button>
+        <button class="btn btn-ghost btn-sm" id="newCheckBtn">↺ New Clearance Check</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM DISCLAIMER -->
+  <div class="disclaimer hidden" id="bottomDisclaimer">
+    <strong>Reminder — This is a preliminary compliance screener, not legal advice.</strong>
+    It does not conclusively determine copyright ownership. It identifies whether the business has sufficient documented authorization to use an image.
+    A result of "Authorized" only reflects the information you provided — it is not a guarantee against infringement claims.
+    Unclear or high-risk cases must be reviewed by qualified legal counsel before publication.
+  </div>
+
+  <div class="footer">Image Rights Clearance Checker · Definitely-Not-Evil-Corp Inc. · Internal Use Only · All analysis is performed locally — no data is transmitted</div>
+</div>
+
+<script>
+/* ================================================================
+   CONSTANTS
+================================================================ */
+const MAX_FILE_SIZE_MB = 30;
+const HASH_SIZE        = 16;
+const ACCEPTED_TYPES   = ['image/jpeg','image/png','image/webp','image/gif','image/bmp','image/tiff'];
+
+/* ================================================================
+   SOURCE DEFINITIONS
+   baseRisk: starting Use Risk Score for this source (0–100)
+================================================================ */
+const SOURCES = [
+  {
+    key: 'internal_employee',
+    icon: '🏢',
+    label: 'Created internally (employee)',
+    sub: 'Made by a current employee of our company',
+    baseRisk: 15,
+    highRisk: false,
+  },
+  {
+    key: 'stock_provider',
+    icon: '🛒',
+    label: 'Purchased from a stock provider',
+    sub: 'e.g. Shutterstock, Getty, Adobe Stock, iStock',
+    baseRisk: 28,
+    highRisk: false,
+  },
+  {
+    key: 'direct_creator',
+    icon: '📸',
+    label: 'Obtained directly from creator',
+    sub: 'Photographer, designer, or artist gave it to us',
+    baseRisk: 22,
+    highRisk: false,
+  },
+  {
+    key: 'contractor_agency',
+    icon: '🤝',
+    label: 'Sent by contractor, freelancer, or agency',
+    sub: 'Third party created or supplied this image',
+    baseRisk: 48,
+    highRisk: false,
+  },
+  {
+    key: 'social_media',
+    icon: '📱',
+    label: 'Downloaded from social media',
+    sub: 'Instagram, X/Twitter, Facebook, TikTok, etc.',
+    baseRisk: 78,
+    highRisk: true,
+  },
+  {
+    key: 'google_web',
+    icon: '🌐',
+    label: 'Found via Google / website / blog',
+    sub: 'Web search result or copy from a webpage',
+    baseRisk: 82,
+    highRisk: true,
+  },
+  {
+    key: 'unknown',
+    icon: '❓',
+    label: 'Unknown source',
+    sub: 'We do not know where this image came from',
+    baseRisk: 92,
+    highRisk: true,
+  },
+];
+
+/* ================================================================
+   EVIDENCE QUESTION CONFIGS
+   Each question: id, text, type ('yesno'|'text'|'select'),
+   impact ({ yes, no } or map of values), hint, placeholder,
+   options (for select)
+================================================================ */
+const EVIDENCE_CONFIG = {
+  internal_employee: {
+    intro: "You indicated this image was created internally. Under the Copyright Act, employers generally own copyright in works created by employees within the scope of their employment. Confirm the following to document ownership.",
+    warning: false,
+    questions: [
+      {
+        id: 'emp_scope',
+        text: 'Was this image created by a current employee within the scope of their employment duties?',
+        type: 'yesno',
+        impact: { yes: -14, no: +22 },
+        hint: 'Scope of employment means the work was part of their normal job responsibilities and created during work hours using company resources.'
+      },
+      {
+        id: 'emp_contractor',
+        text: 'Was any part of this image created or contributed to by a contractor or freelancer (not a direct employee)?',
+        type: 'yesno',
+        impact: { yes: +22, no: -5 },
+        hint: 'Contractors retain copyright by default unless a written assignment agreement explicitly transfers ownership to the company — even if fully paid.'
+      },
+      {
+        id: 'emp_assignment',
+        text: 'If a contractor contributed: Do you have a signed agreement explicitly assigning copyright ownership to the company?',
+        type: 'yesno',
+        impact: { yes: -22, no: +5 },
+        hint: 'Without written assignment language, the contractor retains copyright. A work-for-hire clause or IP assignment clause in the contract satisfies this.'
+      },
+      {
+        id: 'emp_asset_id',
+        text: 'Internal asset ID, project name, or file path (for audit record)',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. PRJ-2025-011, Campaign "Spring Launch"'
+      }
+    ]
+  },
+  stock_provider: {
+    intro: "You indicated this image was purchased from a stock provider. A stock subscription alone does not licence every image for every use. Verify that your specific licence covers commercial business use.",
+    warning: false,
+    questions: [
+      {
+        id: 'stock_name',
+        text: 'Stock provider name',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. Shutterstock, Getty Images, Adobe Stock, Unsplash+'
+      },
+      {
+        id: 'stock_licence',
+        text: 'Do you have a valid licence, invoice, or subscription confirmation covering this specific image?',
+        type: 'yesno',
+        impact: { yes: -22, no: +18 },
+        hint: 'A subscription does not automatically cover every image. Confirm the image was downloaded under an active plan and that your plan tier is correct.'
+      },
+      {
+        id: 'stock_commercial',
+        text: 'Does your licence explicitly authorize commercial or business use for this type of publication?',
+        type: 'yesno',
+        impact: { yes: -12, no: +14 },
+        hint: 'Editorial licences do not permit use in advertising, promotions, or commercial marketing. Confirm your licence is a commercial or extended licence.'
+      },
+      {
+        id: 'stock_ref',
+        text: 'Licence reference number, image ID, or download confirmation URL (for audit record)',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. Image ID: 12345678, Licence #: SHT-2025-...'
+      }
+    ]
+  },
+  direct_creator: {
+    intro: "You indicated this image came directly from its creator. Copyright vests automatically with the author upon creation. Having the image does not mean the business has rights to use it commercially — you need documented permission.",
+    warning: false,
+    questions: [
+      {
+        id: 'creator_name',
+        text: 'Creator name, studio, or contact',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. John Smith Photography, Jane Doe Creative'
+      },
+      {
+        id: 'creator_permission',
+        text: 'Do you have written permission, a signed contract, or documented email authorization from the creator?',
+        type: 'yesno',
+        impact: { yes: -22, no: +18 },
+        hint: 'Verbal permission is not legally enforceable for copyright purposes. Written or documented permission — including email — is required.'
+      },
+      {
+        id: 'creator_scope',
+        text: 'Does the permission explicitly authorize this specific type of commercial/business use?',
+        type: 'yesno',
+        impact: { yes: -12, no: +12 },
+        hint: 'A general "you can use this" is insufficient. The permission should specify the use type (advertising, web, print, social media, etc.).'
+      },
+      {
+        id: 'creator_transfer',
+        text: 'What is the nature of the rights arrangement?',
+        type: 'select',
+        options: [
+          { value: '', label: 'Select…' },
+          { value: 'assigned', label: 'Copyright formally assigned to our company (full transfer)' },
+          { value: 'licensed', label: 'Licensed only — creator retains copyright' },
+          { value: 'unknown', label: 'Not discussed / unclear' }
+        ],
+        impact: { assigned: -8, licensed: 0, unknown: +12 },
+        hint: 'Assignment transfers ownership permanently. A licence gives permission to use under specified conditions. The difference affects future use rights.'
+      }
+    ]
+  },
+  contractor_agency: {
+    intro: "Images created by contractors, freelancers, or agencies are frequently misunderstood. Under the Copyright Act, independent contractors retain copyright by default even after being paid — unless a written agreement explicitly assigns ownership to your company.",
+    warning: false,
+    questions: [
+      {
+        id: 'agency_name',
+        text: 'Agency or contractor name',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. Acme Creative Studio, Jane Doe Freelance'
+      },
+      {
+        id: 'agency_assignment',
+        text: 'Does your contract or agreement include a copyright assignment clause that transfers IP ownership to the company?',
+        type: 'yesno',
+        impact: { yes: -22, no: +18 },
+        hint: 'Look for language such as "all intellectual property created under this agreement is assigned to [Company]." Payment alone does not transfer copyright.'
+      },
+      {
+        id: 'agency_written',
+        text: 'Is there a signed written agreement or statement of work covering this image?',
+        type: 'yesno',
+        impact: { yes: -10, no: +12 },
+        hint: 'Verbal and implied agreements are not reliably enforceable for copyright ownership disputes.'
+      },
+      {
+        id: 'agency_rights_confirmed',
+        text: 'Has the agency or contractor confirmed in writing that they hold the rights to this specific image (i.e., they did not sub-license restricted stock)?',
+        type: 'yesno',
+        impact: { yes: -10, no: +8 },
+        hint: 'Agencies sometimes incorporate stock imagery into deliverables. If so, the stock image licence — not the agency contract — governs your right to use it.'
+      }
+    ]
+  },
+  social_media: {
+    intro: "⚠️ High-Risk Source. Images posted on social media are almost always protected by copyright, vesting with the original creator. Platform terms of service do not grant businesses rights to reuse images commercially. Liking, sharing, saving, or screenshotting does not constitute authorization.",
+    warning: true,
+    questions: [
+      {
+        id: 'social_platform',
+        text: 'Which platform was the image sourced from?',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. Instagram, X/Twitter, Facebook, Pinterest, TikTok'
+      },
+      {
+        id: 'social_permission',
+        text: 'Have you obtained direct written permission from the original rights holder (the creator who posted it)?',
+        type: 'yesno',
+        impact: { yes: -28, no: +5 },
+        hint: 'You must contact the original creator directly — not just the account that shared or reposted it. Permission must cover your specific commercial use.'
+      },
+      {
+        id: 'social_creator_known',
+        text: 'Can you identify and contact the original creator of this image?',
+        type: 'yesno',
+        impact: { yes: -5, no: +5 },
+        hint: 'If the creator cannot be identified, rights clearance is not possible without professional research. Use an alternative licensed image.'
+      }
+    ]
+  },
+  google_web: {
+    intro: "⚠️ High-Risk Source. Images appearing in Google search results or on websites are almost universally protected by copyright. Appearing in a search result does not mean an image is free to use. The fact that others have used an image without permission does not create a right to do so.",
+    warning: true,
+    questions: [
+      {
+        id: 'web_url',
+        text: 'Source URL or website name (if known)',
+        type: 'text',
+        impact: {},
+        placeholder: 'e.g. https://example.com/image.jpg'
+      },
+      {
+        id: 'web_licence',
+        text: 'Is there an explicit Creative Commons licence (CC0, CC BY, CC BY-SA) or a clear public domain declaration on the source page?',
+        type: 'yesno',
+        impact: { yes: -22, no: +3 },
+        hint: 'Only use images explicitly marked CC0 (public domain) or CC BY for commercial business purposes without permission. "Free to use" claims on third-party aggregator sites are not reliable.'
+      },
+      {
+        id: 'web_permission',
+        text: 'Have you contacted the site owner or original creator and received written permission for your specific use?',
+        type: 'yesno',
+        impact: { yes: -28, no: +3 },
+        hint: 'If no, do not use this image commercially. Source a licensed alternative through a stock provider.'
+      }
+    ]
+  },
+  unknown: {
+    intro: "⛔ Very High-Risk Source. Images from unknown sources cannot be cleared for business use without active investigation. Using an image of unknown origin exposes the business to infringement claims, damages, accounting of profits, and injunctions under the Copyright Act.",
+    warning: true,
+    questions: [
+      {
+        id: 'unknown_investigate',
+        text: 'Is the team willing to conduct a reverse image search (Google Images, TinEye) to attempt to trace the original source before making a decision?',
+        type: 'yesno',
+        impact: { yes: -5, no: 0 },
+        hint: 'Tracing the source is a prerequisite for clearance. If the source cannot be identified, the image should not be used for commercial purposes.'
+      }
+    ]
+  }
+};
+
+/* ================================================================
+   HIGH-RISK CATEGORY FLAGS  (for technical detection)
+================================================================ */
+const STOCK_PATTERNS = [
+  /shutterstock/i, /gettyimages/i, /getty_/i, /istock/i, /depositphotos/i,
+  /adobe.?stock/i, /bigstock/i, /123rf/i, /dreamstime/i, /alamy/i,
+  /stock.?photo/i, /royalty.?free/i, /stockphoto/i, /pond5/i,
+];
+const GENERIC_PATTERNS = [
+  /^img_?\d{3,}/i, /^dsc\d{4,}/i, /^photo_?\d{4,}/i, /^image\d{3,}/i,
+  /^download\d*/i, /^unnamed/i, /^untitled/i, /^\d{8,}[\-_]/i,
+  /fb_img/i,
+];
+const EDITING_SOFTWARE = [
+  /photoshop/i, /lightroom/i, /canva/i, /illustrator/i, /gimp/i, /affinity/i,
+];
+const CHARACTER_TERMS = [
+  'mickey','minnie mouse','donald duck','goofy','simba','elsa','stitch','woody',
+  'spiderman','spider-man','ironman','iron man','captain america','hulk','thor',
+  'batman','superman','wonder woman','joker','aquaman',
+  'pikachu','pokemon','mario','luigi','zelda','kirby','sonic','samus',
+  'spongebob','bugs bunny','tom and jerry','scooby','flintstones','garfield',
+  'naruto','goku','dragon ball','one piece','sailor moon','totoro','ghibli',
+  'simpsons','homer','bart','mickey mouse',
+];
+
+/* ================================================================
+   GLOBAL STATE
+================================================================ */
+let state = {
+  file: null, imageEl: null, width: 0, height: 0, exif: {},
+  hash: null, source: null, evidence: {},
+  reviewer: '', dept: '', intendedUse: '', assetId: '',
+  result: null, techResult: null, analysisRun: false,
+};
+
+/* ================================================================
+   HELPERS
+================================================================ */
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(2) + ' MB';
+}
+function gcd(a,b) { return b===0?a:gcd(b,a%b); }
+function aspectStr(w,h) { const d=gcd(w,h); return `${w/d}:${h/d}`; }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg, ms=2400) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), ms);
+}
+function setVis(id, show) { document.getElementById(id).classList.toggle('hidden',!show); }
+function clamp(v,lo,hi) { return Math.max(lo,Math.min(hi,v)); }
+
+/* ================================================================
+   DARK MODE
+================================================================ */
+(()=>{
+  if (localStorage.getItem('ircc-theme')==='dark')
+    document.documentElement.setAttribute('data-theme','dark');
+  updateToggle();
+})();
+function updateToggle() {
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.getElementById('darkToggle').textContent=d?'☀️':'🌙';
+}
+document.getElementById('darkToggle').addEventListener('click',()=>{
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  localStorage.setItem('ircc-theme',d?'light':'dark');
+  updateToggle();
+});
+
+/* ================================================================
+   STEP INDICATOR
+================================================================ */
+function setStep(n) {
+  for (let i=1;i<=4;i++) {
+    const el=document.getElementById(`step${i}-ind`);
+    el.classList.remove('active','done');
+    if (i<n) el.classList.add('done');
+    else if (i===n) el.classList.add('active');
+  }
+}
+
+/* ================================================================
+   FILE HANDLING
+================================================================ */
+const dropZone=document.getElementById('dropZone');
+const fileInput=document.getElementById('fileInput');
+
+['dragenter','dragover'].forEach(e=>dropZone.addEventListener(e,ev=>{ev.preventDefault();dropZone.classList.add('dragover');}));
+['dragleave','drop'].forEach(e=>dropZone.addEventListener(e,()=>dropZone.classList.remove('dragover')));
+dropZone.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer?.files?.[0];if(f)handleFile(f);});
+fileInput.addEventListener('change',e=>{if(e.target.files?.[0])handleFile(e.target.files[0]);});
+document.getElementById('changeFileBtn').addEventListener('click',()=>{ fileInput.value=''; fileInput.click(); });
+document.getElementById('resetBtn').addEventListener('click',resetAll);
+document.getElementById('runBtn').addEventListener('click',runAnalysis);
+document.getElementById('newCheckBtn').addEventListener('click',resetAll);
+
+function resetAll() {
+  state={file:null,imageEl:null,width:0,height:0,exif:{},hash:null,source:null,evidence:{},reviewer:'',dept:'',intendedUse:'',assetId:'',result:null,techResult:null,analysisRun:false};
+  fileInput.value='';
+  document.getElementById('errorMsg').classList.remove('show');
+  setVis('previewRow',false);
+  setVis('sourceCard',true); // keep visible but reset
+  setVis('sourceCard',false);
+  setVis('evidenceCard',false);
+  setVis('reviewerCard',false);
+  setVis('runSection',false);
+  setVis('resultsCard',false);
+  setVis('bottomDisclaimer',false);
+  setVis('resetBtn',false);
+  document.getElementById('loadingWrap').classList.remove('show');
+  document.getElementById('runBtn').style.display='';
+  document.querySelector('#dropZone input').value='';
+  setStep(1);
+}
+
+function showError(msg) {
+  const e=document.getElementById('errorMsg');
+  e.textContent=msg; e.classList.add('show');
+}
+
+function handleFile(file) {
+  document.getElementById('errorMsg').classList.remove('show');
+  if (!ACCEPTED_TYPES.includes(file.type)&&!file.type.startsWith('image/')) {
+    showError(`Unsupported file type: "${file.type||'unknown'}". Please upload a JPG, PNG, WEBP, GIF, or BMP image.`);
+    return;
+  }
+  if (file.size/(1024*1024)>MAX_FILE_SIZE_MB) {
+    showError(`File too large (${(file.size/1048576).toFixed(1)} MB). Please upload an image under ${MAX_FILE_SIZE_MB} MB.`);
+    return;
+  }
+  state.file=file;
+  state.analysisRun=false;
+  state.source=null;
+  state.evidence={};
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const src=e.target.result;
+    const img=new Image();
+    img.onload=()=>{
+      state.imageEl=img;
+      state.width=img.naturalWidth;
+      state.height=img.naturalHeight;
+      extractExif(src).then(exif=>{ state.exif=exif; showPreview(src,file,img); });
+    };
+    img.onerror=()=>showError('Could not decode the image. It may be corrupted.');
+    img.src=src;
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPreview(src, file, img) {
+  document.getElementById('previewImg').src=src;
+  document.getElementById('previewName').textContent=file.name;
+  document.getElementById('previewDetails').textContent=
+    `${formatBytes(file.size)} · ${img.naturalWidth}×${img.naturalHeight}px · ${file.type||'Unknown'}`;
+  setVis('previewRow',true);
+  setVis('resetBtn',true);
+  // Show source card, reset evidence
+  setVis('sourceCard',true);
+  setVis('evidenceCard',false);
+  setVis('reviewerCard',false);
+  setVis('runSection',false);
+  setVis('resultsCard',false);
+  setVis('bottomDisclaimer',false);
+  // Reset source selection
+  document.querySelectorAll('.source-card').forEach(c=>c.classList.remove('selected'));
+  setStep(2);
+  document.getElementById('sourceCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ================================================================
+   EXIF EXTRACTION (best-effort)
+================================================================ */
+async function extractExif(dataURL) {
+  const exif={};
+  try {
+    const b64=dataURL.split(',')[1];
+    const bin=atob(b64);
+    const buf=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+
+    if(buf[0]===0xFF&&buf[1]===0xD8) {
+      exif._format='JPEG';
+      let off=2;
+      while(off<buf.length-4){
+        if(buf[off]!==0xFF)break;
+        const marker=buf[off+1];
+        const segLen=(buf[off+2]<<8)|buf[off+3];
+        if(marker===0xE1){
+          const hdr=String.fromCharCode(...buf.slice(off+4,off+10));
+          if(hdr.startsWith('Exif')){
+            exif._hasExif=true;
+            const seg=buf.slice(off+10,off+2+segLen);
+            const str=new TextDecoder('latin1').decode(seg);
+            const sw=str.match(/[A-Za-z][A-Za-z\s\-\.]{3,60}(?=\x00)/);
+            if(sw) exif.software=sw[0].trim();
+            const dt=str.match(/\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}/);
+            if(dt) exif.dateTime=dt[0].replace(/^(\d{4}):(\d{2}):(\d{2})/,'$1-$2-$3');
+          }
+        }
+        if(marker===0xDA)break;
+        off+=2+segLen;
+      }
+    } else if(buf[0]===0x89&&buf[1]===0x50){ exif._format='PNG'; }
+    else if(buf[0]===0x47&&buf[1]===0x49){ exif._format='GIF'; }
+    else if(buf[0]===0x52&&buf[1]===0x49){ exif._format='WEBP'; }
+
+    if(!exif.software){
+      const str=new TextDecoder('latin1').decode(buf.slice(0,Math.min(buf.length,65536)));
+      for(const p of EDITING_SOFTWARE){ const m=str.match(p); if(m){exif.software=m[0];break;} }
+    }
+    exif._metadataPresent=!!(exif._hasExif||exif.software||exif.dateTime);
+  } catch(_){}
+  return exif;
+}
+
+/* ================================================================
+   SOURCE GRID RENDER
+================================================================ */
+function renderSources() {
+  const grid=document.getElementById('sourceGrid');
+  grid.innerHTML=SOURCES.map(s=>`
+    <div class="source-card${s.highRisk?' high-risk-source':''}" data-key="${s.key}">
+      <span class="source-icon">${s.icon}</span>
+      <div class="source-card-text">
+        <div class="source-card-title">${s.label}${s.highRisk?' <span class="tag tag-red" style="margin-left:4px;">High Risk</span>':''}</div>
+        <div class="source-card-sub">${s.sub}</div>
+      </div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.source-card').forEach(card=>{
+    card.addEventListener('click',()=>selectSource(card.dataset.key));
+  });
+}
+renderSources();
+
+function selectSource(key) {
+  state.source=key;
+  state.evidence={};
+  document.querySelectorAll('.source-card').forEach(c=>{
+    c.classList.toggle('selected', c.dataset.key===key);
+  });
+  renderEvidence(key);
+  setVis('evidenceCard',true);
+  setVis('reviewerCard',true);
+  setVis('runSection',true);
+  setStep(3);
+  document.getElementById('evidenceCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ================================================================
+   EVIDENCE QUESTIONS RENDER
+================================================================ */
+function renderEvidence(key) {
+  const cfg=EVIDENCE_CONFIG[key];
+  if(!cfg) return;
+
+  // Intro
+  const introEl=document.getElementById('evidenceIntro');
+  introEl.textContent=cfg.intro;
+  introEl.className='evidence-intro'+(cfg.warning?' warning':'');
+
+  // Questions
+  const qWrap=document.getElementById('evidenceQuestions');
+  qWrap.innerHTML=cfg.questions.map(q=>{
+    let inputHtml='';
+    if(q.type==='yesno'){
+      inputHtml=`<div class="yesno-group">
+        <button class="yesno-btn" data-qid="${q.id}" data-val="yes">Yes</button>
+        <button class="yesno-btn" data-qid="${q.id}" data-val="no">No</button>
+      </div>`;
+    } else if(q.type==='text'){
+      inputHtml=`<input class="q-input" type="text" data-qid="${q.id}" placeholder="${q.placeholder||''}" />`;
+    } else if(q.type==='select'){
+      const opts=q.options.map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
+      inputHtml=`<select class="q-select" data-qid="${q.id}">${opts}</select>`;
+    }
+    const hintHtml=q.hint?`<div class="q-hint">${q.hint}</div>`:'';
+    return `<div class="q-block" data-qid="${q.id}">
+      <label class="q-label">${q.text}</label>
+      ${inputHtml}${hintHtml}
+    </div>`;
+  }).join('');
+
+  // Yes/No button events
+  qWrap.querySelectorAll('.yesno-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const qid=btn.dataset.qid;
+      const val=btn.dataset.val;
+      state.evidence[qid]=val;
+      qWrap.querySelectorAll(`.yesno-btn[data-qid="${qid}"]`).forEach(b=>{
+        b.classList.remove('selected-yes','selected-no');
+      });
+      btn.classList.add(val==='yes'?'selected-yes':'selected-no');
+    });
+  });
+
+  // Text inputs
+  qWrap.querySelectorAll('.q-input').forEach(inp=>{
+    inp.addEventListener('input',()=>{ state.evidence[inp.dataset.qid]=inp.value.trim(); });
+  });
+
+  // Selects
+  qWrap.querySelectorAll('.q-select').forEach(sel=>{
+    sel.addEventListener('change',()=>{ state.evidence[sel.dataset.qid]=sel.value; });
+  });
+}
+
+/* ================================================================
+   PERCEPTUAL HASH
+================================================================ */
+function computeHash(imgEl, size=HASH_SIZE) {
+  const cv=document.getElementById('processingCanvas');
+  cv.width=size; cv.height=size;
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(imgEl,0,0,size,size);
+  const data=ctx.getImageData(0,0,size,size).data;
+  const gray=[];
+  for(let i=0;i<size*size;i++)
+    gray.push(0.299*data[i*4]+0.587*data[i*4+1]+0.114*data[i*4+2]);
+  const avg=gray.reduce((s,v)=>s+v,0)/gray.length;
+  let bits='';
+  for(const v of gray) bits+=v>=avg?'1':'0';
+  let hex='';
+  for(let i=0;i<bits.length;i+=4) hex+=parseInt(bits.slice(i,i+4),2).toString(16);
+  return hex;
+}
+
+/* ================================================================
+   VISUAL STYLE ANALYSIS (cartoon/flat color)
+================================================================ */
+function analyzeStyle(imgEl) {
+  const S=100;
+  const cv=document.getElementById('processingCanvas');
+  cv.width=S; cv.height=S;
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(imgEl,0,0,S,S);
+  const data=ctx.getImageData(0,0,S,S).data;
+  const buckets=new Set();
+  let totalSat=0, highSat=0;
+  for(let i=0;i<S*S;i++){
+    const r=data[i*4],g=data[i*4+1],b=data[i*4+2];
+    const qr=Math.round(r/24)*24, qg=Math.round(g/24)*24, qb=Math.round(b/24)*24;
+    buckets.add(`${qr},${qg},${qb}`);
+    const rn=r/255,gn=g/255,bn=b/255;
+    const cmax=Math.max(rn,gn,bn),cmin=Math.min(rn,gn,bn),d=cmax-cmin;
+    const l=(cmax+cmin)/2;
+    const s=d===0?0:d/(1-Math.abs(2*l-1));
+    totalSat+=s;
+    if(s>0.55)highSat++;
+  }
+  const uniq=buckets.size;
+  const avgSat=totalSat/(S*S);
+  const highSatRatio=highSat/(S*S);
+  let cartoonScore=0;
+  if(uniq<35)cartoonScore+=0.55; else if(uniq<80)cartoonScore+=0.28;
+  if(avgSat>0.42)cartoonScore+=0.25;
+  if(highSatRatio>0.18)cartoonScore+=0.20;
+  cartoonScore=Math.min(1,cartoonScore);
+  return { uniq, avgSat, cartoonScore, isLikelyCarto:cartoonScore>=0.40, isStronglyCarto:cartoonScore>=0.65 };
+}
+
+/* ================================================================
+   WATERMARK DETECTION
+================================================================ */
+function detectWatermark(imgEl) {
+  const W=Math.min(imgEl.naturalWidth,800), H=Math.min(imgEl.naturalHeight,800);
+  const cv=document.getElementById('processingCanvas');
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(imgEl,0,0,W,H);
+  const data=ctx.getImageData(0,0,W,H).data;
+  const xS=Math.floor(W*0.30),xE=Math.floor(W*0.70);
+  const yS=Math.floor(H*0.35),yE=Math.floor(H*0.65);
+  let semi=0,edge=0,total=0;
+  for(let y=yS;y<yE-1;y++){
+    for(let x=xS;x<xE-1;x++){
+      const idx=(y*W+x)*4;
+      const r=data[idx],g=data[idx+1],b=data[idx+2],a=data[idx+3];
+      const lum=0.299*r+0.587*g+0.114*b;
+      if(a<220&&a>30&&lum>90&&lum<220)semi++;
+      const i2=((y+1)*W+x)*4, i3=(y*W+(x+1))*4;
+      const l2=0.299*data[i2]+0.587*data[i2+1]+0.114*data[i2+2];
+      const l3=0.299*data[i3]+0.587*data[i3+1]+0.114*data[i3+2];
+      if(Math.abs(lum-l2)+Math.abs(lum-l3)>40)edge++;
+      total++;
+    }
+  }
+  const semiR=semi/total, edgeR=edge/total;
+  const possible=semiR>0.04||edgeR>0.28;
+  return { possible, confidence:possible?(semiR>0.04?'moderate':'low'):null };
+}
+
+/* ================================================================
+   TECHNICAL SIGNAL ANALYSIS
+================================================================ */
+function analyzeTechnical(file, imgEl) {
+  const signals=[];
+  const name=file.name;
+
+  // Stock filename
+  let stockHit=null;
+  for(const p of STOCK_PATTERNS){ if(p.test(name)){ stockHit=name.match(p)?.[0]; break; } }
+  if(stockHit) signals.push({ type:'warn', text:`Filename references a known stock agency ("${stockHit}") — verify licence documentation.`, score:10 });
+  else signals.push({ type:'ok', text:'No known stock-agency naming patterns detected in filename.', score:0 });
+
+  // Generic filename
+  let genHit=false;
+  for(const p of GENERIC_PATTERNS){ if(p.test(name)){ genHit=true; break; } }
+  if(genHit) signals.push({ type:'warn', text:'Filename matches a generic or auto-generated pattern — may indicate a scraped or downloaded image.', score:5 });
+
+  // Known character terms
+  const lower=name.toLowerCase().replace(/[_\-\.]+/g,' ');
+  const charHits=CHARACTER_TERMS.filter(t=>lower.includes(t));
+  if(charHits.length>0)
+    signals.push({ type:'warn', text:`Filename contains term(s) associated with protected character IP: "${charHits[0]}" — this image may depict copyrighted franchise artwork.`, score:14 });
+  else
+    signals.push({ type:'ok', text:'No known franchise or character terms detected in filename.', score:0 });
+
+  // Metadata
+  if(!state.exif._metadataPresent) signals.push({ type:'warn', text:'Image has no accessible metadata — metadata may have been stripped, which is common in scraped or re-hosted images.', score:5 });
+  else signals.push({ type:'ok', text:'Metadata present in file — consistent with an original or directly exported image.', score:0 });
+
+  if(state.exif.software) {
+    const isCommercial=/photoshop|lightroom|canva|illustrator/i.test(state.exif.software);
+    if(isCommercial) signals.push({ type:'warn', text:`Editing software detected in metadata: "${state.exif.software}" — common in polished commercial assets. Verify licence.`, score:5 });
+    else signals.push({ type:'ok', text:`Software metadata present: "${state.exif.software}".`, score:0 });
+  }
+
+  // Watermark
+  const wm=detectWatermark(imgEl);
+  if(wm.possible) signals.push({ type:'warn', text:`Possible watermark-like pattern detected in the image center (${wm.confidence} confidence) — may indicate an unlicensed stock image.`, score:8 });
+  else signals.push({ type:'ok', text:'No significant watermark-like patterns detected.', score:0 });
+
+  // Visual style
+  const style=analyzeStyle(imgEl);
+  if(style.isStronglyCarto) signals.push({ type:'warn', text:`Strong cartoon/illustration visual style detected (${style.uniq} unique color buckets) — may indicate franchise or character artwork requiring careful rights verification.`, score:8 });
+  else if(style.isLikelyCarto) signals.push({ type:'warn', text:`Moderate illustration/cartoon style indicators (${style.uniq} unique color buckets) — consider whether this depicts protected character art.`, score:4 });
+  else signals.push({ type:'ok', text:`Image appears photographic or semi-photographic (${style.uniq} unique color buckets, avg saturation ${(style.avgSat*100).toFixed(0)}%).`, score:0 });
+
+  // WebP / no EXIF combo
+  if(file.type==='image/webp') signals.push({ type:'warn', text:'WebP format — commonly used for web-exported or CMS-downloaded assets. Verify original source.', score:4 });
+  else if(file.type==='image/jpeg'&&!state.exif._hasExif) signals.push({ type:'warn', text:'JPEG with no EXIF data — a common pattern for images downloaded from the web or social media.', score:4 });
+
+  const techRisk=Math.min(signals.filter(s=>s.type==='warn').reduce((a,s)=>a+s.score,0),25);
+  return { signals, techRisk };
+}
+
+/* ================================================================
+   SCORING ENGINE
+   Score = Use Risk Score (0–100). Higher = more unauthorized-use risk.
+   Primary driver: source + evidence answers.
+   Secondary cap: technical signals (max +25).
+================================================================ */
+function scoreRisk(source, evidence, techRisk) {
+  const srcDef=SOURCES.find(s=>s.key===source);
+  let score=srcDef?srcDef.baseRisk:90;
+  const riskSignals=[], clearSignals=[];
+
+  // Source signal label
+  riskSignals.push(`Source declared as: "${srcDef?.label||'Unknown'}"`+(srcDef?.highRisk?' — high-risk source category':''));
+  if(!srcDef?.highRisk) clearSignals.push(`Source category "${srcDef?.label}" is lower-risk when rights are properly documented`);
+
+  // Apply evidence question impacts
+  const cfg=EVIDENCE_CONFIG[source];
+  if(cfg){
+    for(const q of cfg.questions){
+      const ans=evidence[q.id];
+      if(!ans) continue;
+      if(q.type==='yesno'&&q.impact){
+        const adj=q.impact[ans]||0;
+        if(adj<0){ score+=adj; clearSignals.push(q.text.slice(0,60)+'… — confirmed ✓'); }
+        else if(adj>0){ score+=adj; riskSignals.push(q.text.slice(0,60)+'… — not confirmed'); }
+      } else if(q.type==='select'&&q.impact&&ans){
+        const adj=q.impact[ans]||0;
+        if(adj<0) clearSignals.push(`Rights arrangement: "${q.options?.find(o=>o.value===ans)?.label||ans}"`);
+        else if(adj>0) riskSignals.push(`Rights arrangement unclear or unfavourable: "${q.options?.find(o=>o.value===ans)?.label||ans}"`);
+        score+=adj;
+      }
+    }
+  }
+
+  // Unanswered evidence questions increase risk slightly
+  if(cfg){
+    const answered=cfg.questions.filter(q=>q.type!=='text'&&evidence[q.id]!==undefined).length;
+    const total=cfg.questions.filter(q=>q.type!=='text').length;
+    const unanswered=total-answered;
+    if(unanswered>0&&unanswered===total){
+      score+=12; riskSignals.push('No rights evidence questions answered — insufficient documentation');
+    } else if(unanswered>0){
+      score+=4*unanswered;
+    }
+  }
+
+  // Add capped technical risk
+  score+=techRisk;
+
+  score=clamp(Math.round(score),0,100);
+
+  // Result category
+  let status,icon,statusClass,naClass,nextAction,summary;
+  if(score<=25){
+    status='Authorized for Use'; icon='✅'; statusClass='authorized'; naClass='na-authorized';
+    nextAction='Retain all licence, permission, and documentation records before publication. Store in your internal asset management system or contract file.';
+    summary=`Based on the source and rights evidence provided, this image appears to have sufficient authorization for business use. The source category and documentation answers support a credible rights basis. This result reflects only the information submitted — it is not a guarantee against infringement claims.`;
+  } else if(score<=45){
+    status='Likely Authorized — Keep Records'; icon='🔵'; statusClass='likely'; naClass='na-likely';
+    nextAction='Proceed only if all supporting records (licence, contract, permission) are stored and accessible. Confirm that licence terms match the specific intended use (platform, format, commercial purpose).';
+    summary=`The source and rights indicators suggest authorization is likely, but documentation is not fully confirmed or could be more clearly recorded. Before publishing, ensure relevant records are filed and the licence scope explicitly covers this use.`;
+  } else if(score<=65){
+    status='Insufficient Proof of Rights'; icon='🟡'; statusClass='insufficient'; naClass='na-insufficient';
+    nextAction='Do not publish this image until a valid licence, written permission, or ownership documentation has been obtained and filed. Use a licensed alternative in the meantime if a deadline is pressing.';
+    summary=`The source may be potentially legitimate, but the rights evidence provided is insufficient to justify commercial business use. There is a meaningful risk that using this image could constitute copyright infringement under the Copyright Act. Additional documentation is required before publication.`;
+  } else if(score<=85){
+    status='High-Risk: Do Not Use Without Review'; icon='🔴'; statusClass='highrisk'; naClass='na-highrisk';
+    nextAction='Do not publish this image. Either source a properly licensed alternative or obtain explicit written authorization from the rights holder before any further steps. If the business has already used this image, consult legal counsel.';
+    summary=`This image carries significant legal risk for business use. The source, documentation gaps, or file signals indicate a high likelihood that the business does not have verified authorization to use this image. Unauthorized use under the Copyright Act can result in civil damages, an accounting of profits, injunctions, and statutory damages of up to $20,000 per work infringed.`;
+  } else {
+    status='Escalate for Legal or Manager Review'; icon='⛔'; statusClass='escalate'; naClass='na-escalate';
+    nextAction='Send immediately to legal counsel, the marketing lead, or compliance manager. Do not use this image under any circumstances until formal written clearance is obtained. Document this escalation in the clearance record below.';
+    summary=`This image presents a very high risk of unauthorized use. The combination of source type, missing documentation, and/or file signals strongly suggests that verified use authorization does not exist. Proceeding without clearance would expose Definitely-Not-Evil-Corp Inc. to serious legal liability including civil claims, criminal liability under ss. 42–43 of the Copyright Act, and reputational harm.`;
+  }
+
+  return { score, status, icon, statusClass, naClass, nextAction, summary, riskSignals, clearSignals };
+}
+
+/* ================================================================
+   RUN ANALYSIS
+================================================================ */
+function runAnalysis() {
+  if(!state.file||!state.imageEl||!state.source) return;
+  state.reviewer=document.getElementById('reviewerName').value.trim();
+  state.dept=document.getElementById('reviewerDept').value.trim();
+  state.intendedUse=document.getElementById('intendedUse').value.trim();
+  state.assetId=document.getElementById('assetId').value.trim();
+
+  document.getElementById('runBtn').style.display='none';
+  document.getElementById('loadingWrap').classList.add('show');
+
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      try {
+        document.getElementById('loadingText').textContent='Computing perceptual fingerprint…';
+        const hash=computeHash(state.imageEl);
+        state.hash=hash;
+
+        document.getElementById('loadingText').textContent='Analyzing file signals…';
+        const techResult=analyzeTechnical(state.file,state.imageEl);
+        state.techResult=techResult;
+
+        document.getElementById('loadingText').textContent='Calculating rights clearance score…';
+        const result=scoreRisk(state.source, state.evidence, techResult.techRisk);
+        state.result=result;
+        state.analysisRun=true;
+
+        document.getElementById('loadingWrap').classList.remove('show');
+        renderResults(result, techResult, hash);
+      } catch(err) {
+        document.getElementById('loadingWrap').classList.remove('show');
+        document.getElementById('runBtn').style.display='';
+        showError('An error occurred during analysis. Please try again.');
+      }
+    },100);
+  });
+}
+
+/* ================================================================
+   RENDER RESULTS
+================================================================ */
+function renderResults(result, techResult, hash) {
+  // Status bar
+  document.getElementById('statusBar').className=`result-status-bar status-${result.statusClass}`;
+  document.getElementById('statusBar').innerHTML=`
+    <span class="result-icon">${result.icon}</span>
+    <div class="result-status-text">
+      <div class="result-status-label">${result.status}</div>
+      <div class="result-status-sub">Use Authorization Risk Assessment · ${new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}</div>
+    </div>
+  `;
+
+  // Score bar
+  document.getElementById('scoreLabel').textContent='Use Risk Score (higher = greater unauthorized-use risk)';
+  document.getElementById('scoreNum').textContent=`${result.score}/100`;
+  const fill=document.getElementById('scoreFill');
+  fill.className=`score-fill fill-${result.statusClass}`;
+  setTimeout(()=>{ fill.style.width=result.score+'%'; },80);
+
+  // Summary
+  document.getElementById('resultSummary').textContent=result.summary;
+
+  // Next action
+  document.getElementById('nextAction').className=`next-action ${result.naClass}`;
+  document.getElementById('nextAction').innerHTML=`
+    <span class="next-action-icon">📋</span>
+    <div class="next-action-text">
+      <strong>Recommended Next Action</strong>
+      ${escHtml(result.nextAction)}
+    </div>
+  `;
+
+  // Risk signals
+  const riskEl=document.getElementById('riskSignals');
+  riskEl.innerHTML=result.riskSignals.length
+    ? result.riskSignals.map(s=>`<div class="signal-item"><span class="sig-dot sig-red"></span><span>${s}</span></div>`).join('')
+    : '<div class="sig-empty">No risk signals identified from source/evidence</div>';
+
+  const clearEl=document.getElementById('clearSignals');
+  clearEl.innerHTML=result.clearSignals.length
+    ? result.clearSignals.map(s=>`<div class="signal-item"><span class="sig-dot sig-green"></span><span>${s}</span></div>`).join('')
+    : '<div class="sig-empty">No clearance indicators identified</div>';
+
+  // Technical signals
+  const techList=document.getElementById('techSignalsList');
+  techList.innerHTML=techResult.signals.map(s=>`
+    <div class="tech-signal">
+      <span>${s.type==='warn'?'⚠️':'✅'}</span>
+      <span>${s.text}</span>
+    </div>
+  `).join('');
+
+  // Hash
+  const chunks=hash.match(/.{1,8}/g)||[];
+  document.getElementById('hashDisplay').innerHTML=chunks.map((c,i)=>
+    `<span style="opacity:${0.55+(i%4)*0.12}">${c}</span>`
+  ).join(' ');
+
+  // Tech toggle
+  document.getElementById('techToggle').addEventListener('click',function(){
+    this.classList.toggle('open');
+    document.getElementById('techBody').classList.toggle('show');
+  });
+
+  // Audit record
+  renderAudit(result, techResult);
+
+  setVis('resultsCard',true);
+  setVis('bottomDisclaimer',true);
+  setStep(4);
+  document.getElementById('resultsCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ================================================================
+   AUDIT RECORD
+================================================================ */
+function buildAuditText(result, techResult) {
+  const srcDef=SOURCES.find(s=>s.key===state.source);
+  const now=new Date().toLocaleString();
+  const evLines=Object.entries(state.evidence).filter(([,v])=>v).map(([k,v])=>`    ${k}: ${v}`).join('\n')||'    (none provided)';
+  const techLines=techResult.signals.map(s=>`    [${s.type==='warn'?'WARNING':'  OK   '}] ${s.text}`).join('\n');
+
+  return `IMAGE RIGHTS CLEARANCE RECORD
+Definitely-Not-Evil-Corp Inc. — Internal Compliance Tool
+============================================================
+
+DATE / TIME:       ${now}
+REVIEWER:          ${state.reviewer||'(not provided)'}
+DEPARTMENT:        ${state.dept||'(not provided)'}
+INTENDED USE:      ${state.intendedUse||'(not provided)'}
+ASSET / CAMPAIGN:  ${state.assetId||'(not provided)'}
+
+FILE INFORMATION
+  Filename:        ${state.file?.name||'N/A'}
+  File Type:       ${state.file?.type||'N/A'}
+  File Size:       ${formatBytes(state.file?.size||0)}
+  Dimensions:      ${state.width}×${state.height}px
+  Aspect Ratio:    ${aspectStr(state.width,state.height)}
+  EXIF Present:    ${state.exif._hasExif?'Yes':'No'}
+  Software Tag:    ${state.exif.software||'Not detected'}
+  Date Taken:      ${state.exif.dateTime||'Not available'}
+
+SOURCE DECLARATION
+  Source Type:     ${srcDef?.label||state.source}
+
+RIGHTS EVIDENCE PROVIDED
+${evLines}
+
+TECHNICAL FILE SIGNALS (Secondary indicators only)
+${techLines}
+
+CLEARANCE RESULT
+  Status:          ${result.status}
+  Use Risk Score:  ${result.score}/100
+  Summary:         ${result.summary}
+
+RECOMMENDED NEXT ACTION
+  ${result.nextAction}
+
+PERCEPTUAL HASH (for local comparison only)
+  ${state.hash}
+
+IMPORTANT
+  This record documents a preliminary compliance screening only.
+  It does not constitute legal advice or a conclusive determination of copyright ownership.
+  Under the Copyright Act (Canada) and the Berne Convention, copyright arises automatically
+  without registration. The absence of a copyright notice does not mean an image is free to use.
+  Unclear or high-risk cases must be reviewed by qualified legal counsel before publication.
+  Unauthorized use may result in civil liability, an accounting of profits, injunctions,
+  and criminal liability under the Copyright Act.
+`;
+}
+
+function renderAudit(result, techResult) {
+  const srcDef=SOURCES.find(s=>s.key===state.source);
+  const rows=[
+    ['Date / Time', new Date().toLocaleString()],
+    ['Reviewer', state.reviewer||'—'],
+    ['Department', state.dept||'—'],
+    ['Intended Use', state.intendedUse||'—'],
+    ['Asset / Campaign ID', state.assetId||'—'],
+    ['Filename', state.file?.name||'—'],
+    ['Source Declared', srcDef?.label||'—'],
+    ['Rights Evidence', Object.keys(state.evidence).filter(k=>state.evidence[k]).length + ' fields answered'],
+    ['Clearance Status', result.status],
+    ['Use Risk Score', result.score + '/100'],
+    ['Recommended Action', result.nextAction.slice(0,80)+'…'],
+  ];
+  document.getElementById('auditRows').innerHTML=rows.map(([k,v])=>`
+    <div class="audit-row">
+      <span class="audit-key">${k}</span>
+      <span class="audit-val">${escHtml(String(v))}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('downloadAuditBtn').onclick=()=>{
+    const txt=buildAuditText(result,techResult);
+    const blob=new Blob([txt],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`rights-clearance-${(state.file?.name||'image').replace(/\.[^.]+$/,'')}-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Clearance record downloaded.');
+  };
+
+  document.getElementById('copyAuditBtn').onclick=()=>{
+    const txt=buildAuditText(result,techResult);
+    navigator.clipboard?.writeText(txt).then(()=>showToast('Record copied to clipboard.'))
+      .catch(()=>{
+        const ta=document.createElement('textarea');
+        ta.value=txt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Record copied.');
+      });
+  };
+}
+</script>
+</body>
+</html>
